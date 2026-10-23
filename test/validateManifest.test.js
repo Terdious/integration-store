@@ -893,6 +893,53 @@ describe('validateManifest', () => {
       );
     });
 
+    it('should accept capabilities from the Docker default set on gladys_version >= 5.3.0', () => {
+      const manifest = buildManifest();
+      manifest.gladys_version = '>=5.3.0';
+      // Frigate's s6-overlay init: chown as root, then s6-setuidgid
+      manifest.containers[0].capabilities = [
+        'CHOWN',
+        'DAC_OVERRIDE',
+        'FOWNER',
+        'FSETID',
+        'SETGID',
+        'SETUID',
+        'SETPCAP',
+        'KILL',
+        'NET_BIND_SERVICE',
+        'SYS_CHROOT',
+      ];
+      expect(validateManifest(manifest)).to.deep.equal({ valid: true, errors: [] });
+    });
+
+    it('should reject capabilities outside the Docker default set, duplicated or not an array', () => {
+      [
+        ['SYS_ADMIN'],
+        ['NET_ADMIN'],
+        ['SYS_PTRACE'],
+        ['ALL'],
+        ['CAP_CHOWN'],
+        ['chown'],
+        ['CHOWN', 'CHOWN'],
+        'CHOWN',
+      ].forEach((capabilities) => {
+        const manifest = buildManifest();
+        manifest.gladys_version = '>=5.3.0';
+        manifest.containers[0].capabilities = capabilities;
+        expect(validateManifest(manifest).valid).to.equal(false);
+      });
+    });
+
+    it('should reject capabilities on a gladys_version range older Gladys releases satisfy', () => {
+      const manifest = buildManifest();
+      manifest.gladys_version = '>=5.2.0';
+      manifest.containers[0].capabilities = ['CHOWN'];
+      expect(validateManifest(manifest).errors).to.deep.equal([
+        'manifest.gladys_version: declaring containers.0.capabilities requires ">=5.3.0" at minimum' +
+          ' (older Gladys releases reject manifests carrying unknown fields)',
+      ]);
+    });
+
     it('should reject an unknown sub-container field', () => {
       const manifest = buildManifest();
       manifest.containers[0].privileged = true;
