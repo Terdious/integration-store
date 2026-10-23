@@ -893,7 +893,7 @@ describe('validateManifest', () => {
       );
     });
 
-    it('should accept capabilities from the Docker default set on gladys_version >= 5.3.0', () => {
+    it('should accept the need-based capability allowlist on gladys_version >= 5.3.0', () => {
       const manifest = buildManifest();
       manifest.gladys_version = '>=5.3.0';
       // Frigate's s6-overlay init: chown as root, then s6-setuidgid
@@ -912,12 +912,18 @@ describe('validateManifest', () => {
       expect(validateManifest(manifest)).to.deep.equal({ valid: true, errors: [] });
     });
 
-    it('should reject capabilities outside the Docker default set, duplicated or not an array', () => {
+    it('should reject capabilities outside the need-based allowlist, duplicated or not an array', () => {
       [
         ['SYS_ADMIN'],
         ['NET_ADMIN'],
         ['SYS_PTRACE'],
         ['ALL'],
+        // inside Docker's default set, but no documented image need
+        // (NET_RAW: packet injection on the private network)
+        ['NET_RAW'],
+        ['MKNOD'],
+        ['SETFCAP'],
+        ['AUDIT_WRITE'],
         ['CAP_CHOWN'],
         ['chown'],
         ['CHOWN', 'CHOWN'],
