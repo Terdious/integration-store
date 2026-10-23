@@ -98,6 +98,16 @@ export const MANIFEST_TYPE_MIN_GLADYS_VERSION = {
   // calendar store
   calendar: '5.2.0',
 };
+// Same gate inside a `containers[]` entry: older cores validate sub-container
+// fields with a strict allowlist too, and cap `ports` at 3. Field need of both:
+// Frigate NVR (several hundred tasks, recording cache in /tmp, UI + RTSP +
+// WebRTC over tcp and udp). 5.3.0 is the first release expected to accept them.
+export const SUB_CONTAINER_FIELD_MIN_GLADYS_VERSION = {
+  pids_limit: '5.3.0',
+  tmp_mb: '5.3.0',
+};
+export const LEGACY_MAX_SUB_CONTAINER_PORTS = 3;
+export const SUB_CONTAINER_EXTRA_PORTS_MIN_GLADYS_VERSION = '5.3.0';
 // Same gate for the dynamic `source` values of a select / multi_select field
 // (C.1), whatever the form declaring the field: an older core rejects a source
 // it does not know with "must be one of devices".

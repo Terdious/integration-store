@@ -7,8 +7,11 @@ import semver from 'semver';
 import {
   CAPABILITY_MANIFEST_FIELDS,
   CONFIG_FIELD_SOURCE_MIN_GLADYS_VERSION,
+  LEGACY_MAX_SUB_CONTAINER_PORTS,
   MANIFEST_FIELD_MIN_GLADYS_VERSION,
   MANIFEST_TYPE_MIN_GLADYS_VERSION,
+  SUB_CONTAINER_EXTRA_PORTS_MIN_GLADYS_VERSION,
+  SUB_CONTAINER_FIELD_MIN_GLADYS_VERSION,
   SUPPORTED_MANIFEST_VERSION,
 } from './constants.js';
 import { isValidDockerImageReference } from './parseDockerImageReference.js';
@@ -468,6 +471,26 @@ function validateGladysVersionGates(manifest) {
       errors.push(
         `manifest.gladys_version: declaring ${field} requires ">=${fieldMinimum}" at minimum` +
           ` (older Gladys releases reject manifests carrying unknown fields)`,
+      );
+    }
+  });
+  (manifest.containers ?? []).forEach((container, i) => {
+    Object.entries(SUB_CONTAINER_FIELD_MIN_GLADYS_VERSION).forEach(([field, fieldMinimum]) => {
+      if (container[field] !== undefined && !satisfies(fieldMinimum)) {
+        errors.push(
+          `manifest.gladys_version: declaring containers.${i}.${field} requires ">=${fieldMinimum}" at minimum` +
+            ` (older Gladys releases reject manifests carrying unknown fields)`,
+        );
+      }
+    });
+    if (
+      (container.ports ?? []).length > LEGACY_MAX_SUB_CONTAINER_PORTS &&
+      !satisfies(SUB_CONTAINER_EXTRA_PORTS_MIN_GLADYS_VERSION)
+    ) {
+      errors.push(
+        `manifest.gladys_version: declaring more than ${LEGACY_MAX_SUB_CONTAINER_PORTS} ports in containers.${i}` +
+          ` requires ">=${SUB_CONTAINER_EXTRA_PORTS_MIN_GLADYS_VERSION}" at minimum` +
+          ` (older Gladys releases accept at most ${LEGACY_MAX_SUB_CONTAINER_PORTS})`,
       );
     }
   });

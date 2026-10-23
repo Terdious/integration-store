@@ -757,13 +757,38 @@ describe('validateManifest', () => {
       ]);
     });
 
-    it('should reject more than 3 published ports', () => {
+    it('should reject more than 4 published ports', () => {
+      const manifest = buildManifest();
+      manifest.gladys_version = '>=5.3.0';
+      manifest.containers[0].ports = [1, 2, 3, 4, 5].map((port) => ({
+        container_port: port,
+        label: { en: `Port ${port}` },
+      }));
+      expect(validateManifest(manifest).valid).to.equal(false);
+    });
+
+    it('should accept 4 published ports, one entry per protocol, on gladys_version >= 5.3.0', () => {
+      const manifest = buildManifest();
+      manifest.gladys_version = '>=5.3.0';
+      manifest.containers[0].ports = [
+        { container_port: 8971, label: { en: 'Frigate UI' } },
+        { container_port: 8554, label: { en: 'RTSP' }, browsable: false },
+        { container_port: 8555, protocol: 'tcp', label: { en: 'WebRTC (TCP)' }, browsable: false },
+        { container_port: 8555, protocol: 'udp', label: { en: 'WebRTC (UDP)' }, browsable: false },
+      ];
+      expect(validateManifest(manifest)).to.deep.equal({ valid: true, errors: [] });
+    });
+
+    it('should reject a fourth port on a gladys_version range older Gladys releases satisfy', () => {
       const manifest = buildManifest();
       manifest.containers[0].ports = [1, 2, 3, 4].map((port) => ({
         container_port: port,
         label: { en: `Port ${port}` },
       }));
-      expect(validateManifest(manifest).valid).to.equal(false);
+      expect(validateManifest(manifest).errors).to.deep.equal([
+        'manifest.gladys_version: declaring more than 3 ports in containers.0 requires ">=5.3.0" at minimum' +
+          ' (older Gladys releases accept at most 3)',
+      ]);
     });
 
     it('should reject a port without label', () => {
@@ -829,6 +854,43 @@ describe('validateManifest', () => {
       const shm = buildManifest();
       shm.containers[0].shm_mb = 1024;
       expect(validateManifest(shm).valid).to.equal(false);
+    });
+
+    it('should accept the pids_limit and tmp_mb bounds on gladys_version >= 5.3.0', () => {
+      [
+        { pids_limit: 50, tmp_mb: 64 },
+        { pids_limit: 2048, tmp_mb: 2048 },
+      ].forEach((limits) => {
+        const manifest = buildManifest();
+        manifest.gladys_version = '>=5.3.0';
+        Object.assign(manifest.containers[0], limits);
+        expect(validateManifest(manifest)).to.deep.equal({ valid: true, errors: [] });
+      });
+    });
+
+    it('should enforce the pids_limit and tmp_mb bounds', () => {
+      [{ pids_limit: 49 }, { pids_limit: 4096 }, { pids_limit: 100.5 }, { tmp_mb: 32 }, { tmp_mb: 4096 }].forEach(
+        (limits) => {
+          const manifest = buildManifest();
+          manifest.gladys_version = '>=5.3.0';
+          Object.assign(manifest.containers[0], limits);
+          expect(validateManifest(manifest).valid).to.equal(false);
+        },
+      );
+    });
+
+    it('should reject pids_limit and tmp_mb on a gladys_version range older Gladys releases satisfy', () => {
+      const manifest = buildManifest();
+      manifest.gladys_version = '>=5.2.0';
+      manifest.containers[0].pids_limit = 512;
+      manifest.containers[0].tmp_mb = 1024;
+      expect(validateManifest(manifest).errors).to.deep.equal(
+        ['pids_limit', 'tmp_mb'].map(
+          (field) =>
+            `manifest.gladys_version: declaring containers.0.${field} requires ">=5.3.0" at minimum` +
+            ' (older Gladys releases reject manifests carrying unknown fields)',
+        ),
+      );
     });
 
     it('should reject an unknown sub-container field', () => {
